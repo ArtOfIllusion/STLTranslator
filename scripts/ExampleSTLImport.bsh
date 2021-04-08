@@ -1,0 +1,82 @@
+/*
+<?xml version='1.0' standalone='yes' ?>
+
+<script>
+	<name>ExampleSTLImport</name>
+	<author>Nik Trevallyn-Jones</author>
+	<version>1.0</version>
+	<date>June 2005</date>
+	<description>
+This script provides a template for script access to the STLTranslator plugin.
+        </description>
+</script>
+*/
+
+String STL_TYPE = "artofillusion.translators.STLTranslator";
+
+// you *might* want to import into the current scene
+//Scene scene = window.getScene();
+
+// get the STLTranslator object
+Translator[] trans = ModellingApp.getTranslators();
+
+Translator stl = null;
+int max = trans.length;
+for (int x = 0; x < max; x++) {
+    if (trans[x].getClass().getName().equals(STL_TYPE)) {
+	stl = trans[x];
+	break;
+    }
+}
+
+/*
+ *  You may also wish to adjust some of the translator's parameters:
+ */
+stl.centered = true;		// center the imported model
+stl.frame = true;		// frame the imported model in the view
+
+/*
+ * ok, now what do we want to do?
+ * choose one of the options below:
+ */
+
+/*
+ * Just running the translator as if from the menu is easy:
+ */
+//stl.importFile(window);
+
+/*
+ * to run the translator without a GUI,  you should be able to do something
+ * like the following:
+ */
+
+/*
+ * create the input stream, for example:
+ */
+InputStream in = new FileInputStream("test.stl");
+//if (compress) in = new GZIPOutputStream(out);
+in = new BufferedInputStream(in);
+
+/*
+ *  call the appropriate importStream() method passing:
+ * - a Scene. Simplest is either to pass an existing scene, or NULL.
+ *   If you pass in NULL, STLTranslator creates a new scene for you.
+ *
+ * - a Reader for an ASCII file
+ * - a DataInputStream for a BINARY file
+ */
+
+Scene scene = null;
+
+// for binary input, pass the InputStream directly
+//scene = stl.importStream(scene, in);
+
+// for ASCII, pass a Reader
+Reader asci = new InputStreamReader(in);
+scene = stl.importStream(scene, asci);
+
+/*
+ *  If you passed a NULL scene, then you will want to see the new scene in a
+ *  (new) window
+ */
+if (scene != null) ModellingApp.newWindow(scene);

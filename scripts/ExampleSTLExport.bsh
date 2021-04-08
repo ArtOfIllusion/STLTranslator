@@ -1,0 +1,84 @@
+/*
+<?xml version='1.0' standalone='yes' ?>
+
+<script>
+	<name>ExampleSTLExport</name>
+	<author>Nik Trevallyn-Jones</author>
+	<version>1.0</version>
+	<date>June 2005</date>
+	<description>
+This script provides a template for script access to the STLTranslator plugin.
+        </description>
+</script>
+*/
+
+String STL_TYPE = "artofillusion.translators.STLTranslator";
+
+// get the current scene
+Scene scene = window.getScene();
+
+// get the STLTranslator object
+Translator[] trans = ModellingApp.getTranslators();
+
+Translator stl = null;
+int max = trans.length;
+for (int x = 0; x < max; x++) {
+    if (trans[x].getClass().getName().equals(STL_TYPE)) {
+	stl = trans[x];
+	break;
+    }
+}
+
+/*
+ *  You may also wish to adjust some of the translator's parameters:
+ */
+stl.surfError = 0.02;		// surface error for exported meshes
+stl.decimal = 10;		// maximum decimal digits to export
+
+/*
+ * ok, now what do we want to do?
+ * choose one of the options below:
+ */
+
+/*
+ * Just running the translator as if from the menu is easy:
+ */
+//stl.exportFile(window, scene);
+
+/*
+ * to run the translator without a GUI,  you should be able to do something
+ * like the following:
+ */
+
+// find your objects, and add each to an ArrayList list
+ArrayList list = new ArrayList();
+
+// you may wish to add only specific object(s), without unwrapping
+// list.add(scene.getObject(n));
+
+// or you may wish to export the entire scene (with unwrapping):
+int max = scene.getNumObjects();
+for (int x = 0; x < max; x++) {
+    stl.addObject(scene.getObject(x), list, scene);
+}
+
+/*
+ * create the output stream, for example:
+ */
+OutputStream out = new FileOutputStream("test.stl");
+//if (compress) out = new GZIPOutputStream(out);
+out = new BufferedOutputStream(out);
+
+/*
+ *  call the appropriate exportStream() method passing:
+ * - a PrintWriter for an ASCII file
+ * - a DataOutputStream for a BINARY file
+ */
+
+// for binary output, pass the OutputStream directly
+//stl.exportStream(list, out);
+
+// for ASCII, pass a PrintWriter
+PrintWriter asci = new PrintWriter(out);
+stl.exportStream(list, asci);
+

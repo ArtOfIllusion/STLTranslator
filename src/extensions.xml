@@ -1,0 +1,85 @@
+<?xml version="1.0" standalone="yes"?>
+<extension name="STLTranslator" version="1.1">
+  <author>Nik Trevallyn-Jones</author>
+  <date>July 2007</date>
+
+  <plugin class="artofillusion.translators.STLTranslator" >
+
+     <export method="importSTL" id="nik777.STLTranslator.import" >
+Import an STL file
+
+@param the File object to import
+     </export>
+  </plugin>
+
+  <resource type="fileType" id="stl" name="nik777.STLTranslator.import" />
+
+  <description>
+Export/Import facilities for STL files
+  </description>
+  <comments>
+This is a derivative work, based heavily on existing code within AOI and a
+script by Francois Guilett.
+  </comments>
+  <history>
+     <log version="1.1" author="Nik TJ" date="July 2007">
+- Changes for AOI 2.5 compatibility
+- Support for new 'direct-import' code
+     </log>
+     <log version="1.01" author="Nik TJ" date="March 2007">
+Long-overdue classification as stable. Removed the beta flag.
+     </log>
+     <log version="1.01b1" author="Nik TJ" date="March 2007">
+Fixed a bug which caused normals to be exported without translation to global
+coords
+     </log>
+     <log version="1.0b4" author="Nik TJ" date="June 2005">
+set the default display mode to "shaded" for imported meshes.
+     </log>
+     <log version="1.0b3" author="Nik TJ">
+improvement to the importStream and exportStream interface, and two
+example scripts to drive it.
+     </log>
+     <log version="1.0b2" author="Nik TJ">
+changed the interface to importStream() and exportStream() to (re)enable
+access by external code and scripts.
+     </log>
+     <log version="1.0b1" author="Nik TJ">
+- Stable release (beta 1)
+- added control over significant digits for export
+- uses SolidTool plugin to validate and edit/fix objects for export
+     </log>
+     <log version="0.08" author="Nik TJ">
+- fixed parsing error of crlf pairs (eg DOS)
+- fixed a problem that could occur if an import was abandoned
+     </log>
+     <log version="0.07" author="Nik TJ">
+consolidated error handling into main GUI
+     </log>
+     <log version="0.06" author="Nik TJ">
+improved error handling for exported objects
+     </log>
+     <log version="0.05" author="Nik TJ">
+- auto detection of binary/ascii files
+- frame option frames each view
+- added error tolerance for import
+- minor interface improvements
+     </log>
+     <log version="0.04" author="Nik TJ">
+- changed error reporting of "holes" to calculating hole count
+- added the ability to export multiple object as a single STL solid
+     </log>
+     <log version="0.03" author="Nik TJ">
+- improved import to read numbers in scientific notation
+- removed calls to java 1.5 methods (String.replace())
+     </log>
+     <log version="0.02" author="Nik TJ">
+- added binary import/export
+- added validation of import/export
+     </log>
+     <log version="0.01" Author="Nik TJ">
+ - original coding
+     </log>
+  </history>
+</extension>
+
