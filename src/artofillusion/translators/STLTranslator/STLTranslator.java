@@ -52,8 +52,7 @@ public class STLTranslator implements Plugin, Translator
     public static final int IMPORT = 1;
 
     /* public so external code (eg scripts) can have access */
-    public double surfError = 0.05, tolerance = 0.0;
-    public int decimal = 12;
+    public double surfError = 0.05;
     public boolean ignoreError=false, centered=true, frame=true;
 
     protected Object ed;
@@ -88,9 +87,6 @@ public class STLTranslator implements Plugin, Translator
     protected BCheckBox ignoreBox = new
 	BCheckBox(Translate.text("ignoreErrors"), false);
     
-    protected ValueField errorField = new
-	ValueField(tolerance, ValueField.NONNEGATIVE);
-
     protected ValueField surfErrorField = new
 	ValueField(surfError, ValueField.NONNEGATIVE);
 
@@ -399,8 +395,7 @@ public class STLTranslator implements Plugin, Translator
 		v = vert[face[i].v2].r.minus(vert[face[i].v1].r)
 		    .cross(vert[face[i].v3].r.minus(vert[face[i].v1].r));
 
-		length = v.length();
-		if (length > 0.0) v.scale(1.0/length);
+                v.normalize();
 
 		//System.out.println("STL; norm before trans=" + v);
 		v = info.coords.fromLocal().timesDirection(v);
@@ -473,8 +468,7 @@ public class STLTranslator implements Plugin, Translator
 	    for (int i = 0; i < face.length; i++) {
 		v = vert[face[i].v2].r.minus(vert[face[i].v1].r).cross(vert[face[i].v3].r.minus(vert[face[i].v1].r));
 
-		length = v.length();
-		if (length > 0.0) v.scale(1.0/length);
+                v.normalize();
 
 		//System.out.println("STL; norm before trans=" + v);
 		v = info.coords.fromLocal().timesDirection(v);
@@ -668,19 +662,19 @@ public class STLTranslator implements Plugin, Translator
 			v3 = (Vec3) vlist.get(face[2]);
 
 			calcNorm = v2.minus(v1).cross(v3.minus(v1));
-			double length = calcNorm.length();
-			if (length > 0.0) calcNorm.scale(1.0/length);
+                        calcNorm.normalize();
+                        double projection = norm.unit().dot(calcNorm);
 
-			if (!calcNorm.equals(norm)
-			    && Math.abs(calcNorm.minus(norm).length())
-			    > tolerance)
+                        if (0 < projection && projection < 0.999)
+                            message.write("Normal direction, line: " + lineno + "\n"
+                            + "read: " + norm + "; calculated: " + calcNorm + "\n");
+                        if (projection < 0.0)
+                            message.write("Inverted normal at line: " + lineno + "\n");
+                        if (projection == 0.0)
+                            message.write("Degenerate triangle Detected at line: "
+                                          + lineno + "\n");
 
-			    message.write("\nWarning (line " +
-				      lineno +
-					"): facet normal mismatch. read: " +
-					norm + "; calculated: " + calcNorm);
-			    
-			flist.add(face);
+                        flist.add(face);
 		    }
 
 		    else if (s.equals("vertex")) {
@@ -880,18 +874,19 @@ public class STLTranslator implements Plugin, Translator
 		    v3 = (Vec3) vlist.get(face[2]);
 
 		    calcNorm = v2.minus(v1).cross(v3.minus(v1));
-		    double length = calcNorm.length();
-		    if (length > 0.0) calcNorm.scale(1.0/length);
+		    calcNorm.normalize();
+                    double projection = norm.unit().dot(calcNorm);
+                
+                    if (0 < projection && projection < 0.999)
+                        message.write("Normal direction, face: " + faceno + "\n"
+                        + "read: " + norm + "; calculated: " + calcNorm + "\n");
+                    if (projection < 0.0)
+                        message.write("Inverted normal at face: " + faceno + "\n");
+                    if (projection == 0.0)
+                        message.write("Degenerate triangle detected at face: "
+                        + faceno + "\n");
 
-		    if (!calcNorm.equals(norm)
-			&& Math.abs(calcNorm.minus(norm).length())
-			> tolerance)
-
-			message.write("\nWarning: facet normal mismatch." +
-				      "read: " + norm + 
-				      "; calculated: " + calcNorm);
-			    
-		    flist.add(face);
+                    flist.add(face);
 		}
 
 		//System.out.println("STL: building mesh");
@@ -974,7 +969,6 @@ public class STLTranslator implements Plugin, Translator
 	ignoreBox.setState(ignoreError);
 	centerBox.setState(centered);
 	frameBox.setState(frame);
-	errorField.setValue(tolerance);
 	surfErrorField.setValue(surfError);
 	decimalField.setValue(decimal);
 
@@ -985,7 +979,6 @@ public class STLTranslator implements Plugin, Translator
 	pathField.setEnabled(true);
 	typeChoice.setEnabled(true);
 	browseButton.setEnabled(true);
-	errorField.setEnabled(true);
 	surfErrorField.setEnabled(true);
 	decimalField.setEnabled(true);
 	centerBox.setEnabled(true);
@@ -1060,11 +1053,6 @@ public class STLTranslator implements Plugin, Translator
 		typeChoice.add(Translate.text("Auto"));
 
 	    typeChoice.setSelectedIndex(AUTO);
-
-	    errRow.add(Translate.label("errorTolerance"));
-	    errRow.add(errorField);
-
-	    col.add(errRow);
 
 	    RowContainer viewRow = new RowContainer();
 	    viewRow.add(centerBox);
@@ -1199,7 +1187,6 @@ public class STLTranslator implements Plugin, Translator
 	ignoreError = ignoreBox.getState();
 	centered = centerBox.getState();
 	frame = frameBox.getState();
-	tolerance = errorField.getValue();
 	surfError = surfErrorField.getValue();
 	decimal = (int) decimalField.getValue();
 
@@ -1249,7 +1236,6 @@ public class STLTranslator implements Plugin, Translator
 	ok.setEnabled(false);
 	pathField.setEnabled(false);
 	browseButton.setEnabled(false);
-	errorField.setEnabled(false);
 	surfErrorField.setEnabled(false);
 	decimalField.setEnabled(false);
 	centerBox.setEnabled(false);
