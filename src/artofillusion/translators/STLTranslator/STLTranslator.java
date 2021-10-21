@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2002-2004 by Nik Trevallyn-Jones
+ * Changes copyright (C) 2021 by Lucas Stanek
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -538,17 +539,13 @@ public class STLTranslator implements Plugin, Translator
 	    token.resetSyntax();
 	    token.eolIsSignificant(true);
 
-	    token.wordChars('a', 'z');
-	    token.wordChars('A', 'Z');
-	    token.wordChars('"', '"');
-	    token.wordChars('_', '_');
-	    token.wordChars('.', '.');
-	    token.wordChars('-', '-');
-	    token.wordChars('+', '+');
-	    token.wordChars('1', '9');
-	    token.wordChars('0', '0');
+	    token.wordChars('!', '~'); //Classic 7-bit ASCII printable range, not including space
+	    token.wordChars(0x00A1, 0x00FF); // ISO-8259-1 extended ASCII/US-ASCII...
+            token.ordinaryChar(0x00AD); //Except soft-hyphen (for dynamically-broken lines)
+            token.commentChar(';'); //From semicolon to EOL, comment metadata is ignored.
 
-	    token.whitespaceChars(' ', ' ');
+	    token.whitespaceChars(' ', ' '); //space
+            token.whitespaceChars(0x00A0, 0x00A0); //non-breaking space
 	    token.whitespaceChars('\t', '\t');
 
 	    int count = 0;
