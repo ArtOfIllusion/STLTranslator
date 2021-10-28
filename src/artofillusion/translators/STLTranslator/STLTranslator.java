@@ -563,15 +563,17 @@ public class STLTranslator implements Plugin, Translator
 			flist.clear();
 			vmap.clear();
 
-			if (token.nextToken() == WORD) {
-			    s = token.sval;
-
-			    if (QUOTES.indexOf(s.charAt(0)) >= 0
-				&& s.charAt(s.length()-1) == s.charAt(0)) {
-				
-				name = s.substring(1, s.length()-1);
-			    }
-			}
+                        if (token.nextToken() == WORD) {
+                          s = token.sval;
+                          if (s != "facet") {
+                            if (QUOTES.indexOf(s.charAt(0)) >= 0
+                                && s.charAt(s.length()-1) == s.charAt(0)) {
+                                name = s.substring(1, s.length()-1);
+                                } else {
+                                  name = s;
+                                }
+                            }
+                        }
 			
 			if (name == null || name.length() == 0)
 			    name = "Object-" + count;
