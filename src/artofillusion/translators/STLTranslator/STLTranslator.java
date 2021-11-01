@@ -571,6 +571,8 @@ public class STLTranslator implements Plugin, Translator
                                 name = s.substring(1, s.length()-1);
                                 } else {
                                   name = s;
+                                  while (token.nextToken() != EOL) // read name till
+                                    name = name + " " + token.sval; // EOL, including spaces
                                 }
                             }
                         }
