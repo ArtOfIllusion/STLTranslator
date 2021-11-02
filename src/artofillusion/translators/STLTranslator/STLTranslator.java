@@ -361,7 +361,6 @@ public class STLTranslator implements Plugin, Translator
 	Mat4 trans = null;
 	Vec3 v;
 	double length;
-	String name = null;
 
 	nf.setMaximumFractionDigits(decimal);
 	nf.setGroupingUsed(false);
@@ -374,16 +373,13 @@ public class STLTranslator implements Plugin, Translator
 
 	    if (mesh == null) continue;
 
-	    if (name == null) {
-		// Write the header information.
-		name = Util.translate(info.name, " ", "_");
-		out.print("solid \"");
-		out.print(name);
-		out.print("\"; Produced by Art of Illusion ");
-		out.print(ModellingApp.VERSION);
-		out.print(", ");
-		out.print(new Date().toString());
-	    }
+            // Write the header information.
+            out.print("solid ");
+            out.print(info.name);
+            out.print("; Produced by Art of Illusion ");
+            out.print(ModellingApp.VERSION);
+            out.print(", ");
+            out.print(new Date().toString());
 
 	    vert = mesh.getVertices();
 	    face = mesh.getFaces();
@@ -408,9 +404,9 @@ public class STLTranslator implements Plugin, Translator
 		
 		out.print("\n  endloop\nendfacet");
 	    }
+            out.println("\nendsolid " + info.name);
 	}
 
-	out.println("\nendsolid");
 	out.flush();
 	
 	System.out.println("stream complete");
