@@ -589,8 +589,8 @@ public class STLTranslator implements Plugin, Translator
 
 			count++;
 
-			faceArray = (int[][]) flist.toArray(faceArray);
-			vertArray = (Vec3[]) vlist.toArray(vertArray);
+			faceArray = (int[][]) flist.toArray(new int[0][0]);
+			vertArray = (Vec3[]) vlist.toArray(new Vec3[0]);
 
 			centre = bounds.getCenter();
 			coords = new
@@ -730,7 +730,7 @@ public class STLTranslator implements Plugin, Translator
 	catch (Exception e) {
 	    new BStandardDialog("", new String [] {
 		Translate.text("errorLoadingFile"),
-		"(at line " + lineno + ")\n" + e.getMessage()
+		"(at line " + lineno + ")\n" + e.toString()
 	    }, BStandardDialog.ERROR).showMessageDialog(parent);
 	    return null;
 	}
