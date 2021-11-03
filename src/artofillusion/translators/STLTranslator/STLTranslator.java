@@ -571,10 +571,7 @@ public class STLTranslator implements Plugin, Translator
                                     name = name + " " + token.sval; // EOL, including spaces
                                 }
                             }
-                        }
-			
-			if (name == null || name.length() == 0)
-			    name = "Object-" + count;
+                        } else name = "Object-" + count;
 
 			System.out.println("STL: name=" + name);
 
