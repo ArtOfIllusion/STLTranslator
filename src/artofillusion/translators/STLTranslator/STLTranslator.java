@@ -90,9 +90,6 @@ public class STLTranslator implements Plugin, Translator
     protected ValueField surfErrorField = new
 	ValueField(surfError, ValueField.NONNEGATIVE);
 
-    protected ValueField decimalField = new
-	ValueField((double) decimal, ValueField.INTEGER | ValueField.POSITIVE);
-
     protected BCheckBox compressBox = new
 	BCheckBox(Translate.text("fileCompression"), false);
 
@@ -111,8 +108,6 @@ public class STLTranslator implements Plugin, Translator
     protected BScrollPane scroll = new
 	BScrollPane(BScrollPane.SCROLLBAR_AS_NEEDED,
 		    BScrollPane.SCROLLBAR_AS_NEEDED);
-
-    protected NumberFormat nf = NumberFormat.getInstance(Locale.US);
 
     protected BComboBox meshChoice = new BComboBox();
 
@@ -362,9 +357,6 @@ public class STLTranslator implements Plugin, Translator
 	Vec3 v;
 	double length;
 
-	nf.setMaximumFractionDigits(decimal);
-	nf.setGroupingUsed(false);
-
 	// Write the objects in the scene.
 	int max = list.size();
 	for (int x = 0; x < max; x++) {
@@ -425,9 +417,6 @@ public class STLTranslator implements Plugin, Translator
 
 	// binary STL is always little-endian
 	DataOutput out = new LittleEndianDataOutputStream(os);
-
-	nf.setMaximumFractionDigits(decimal);
-	nf.setGroupingUsed(false);
 
 	ObjectInfo info = null;
 	TriangleMesh mesh = null;
@@ -967,7 +956,6 @@ public class STLTranslator implements Plugin, Translator
 	centerBox.setState(centered);
 	frameBox.setState(frame);
 	surfErrorField.setValue(surfError);
-	decimalField.setValue(decimal);
 
 	can.setText(Translate.text("cancel"));
 	ok.setEnabled(true);
@@ -977,7 +965,6 @@ public class STLTranslator implements Plugin, Translator
 	typeChoice.setEnabled(true);
 	browseButton.setEnabled(true);
 	surfErrorField.setEnabled(true);
-	decimalField.setEnabled(true);
 	centerBox.setEnabled(true);
 	frameBox.setEnabled(true);
 	ignoreBox.setEnabled(true);
@@ -994,10 +981,6 @@ public class STLTranslator implements Plugin, Translator
 	type.add(new BLabel(Translate.text("fileType")));
 	type.add(typeChoice);
 
-	RowContainer decRow = new RowContainer();
-	decRow.add(Translate.label("maxDecimalDigits"));
-	decRow.add(decimalField);
-
 	RowContainer butts = new RowContainer();
 	butts.add(ok);
 	butts.add(can);
@@ -1009,7 +992,6 @@ public class STLTranslator implements Plugin, Translator
 	ColumnContainer col = new ColumnContainer();
 	col.add(path);
 	col.add(type);
-	col.add(decRow);
 
 	RowContainer errRow = new RowContainer();
 	if (action == EXPORT) {
@@ -1185,7 +1167,6 @@ public class STLTranslator implements Plugin, Translator
 	centered = centerBox.getState();
 	frame = frameBox.getState();
 	surfError = surfErrorField.getValue();
-	decimal = (int) decimalField.getValue();
 
 	if (action == EXPORT && file.exists()) {
 	    int choice = new
@@ -1234,7 +1215,6 @@ public class STLTranslator implements Plugin, Translator
 	pathField.setEnabled(false);
 	browseButton.setEnabled(false);
 	surfErrorField.setEnabled(false);
-	decimalField.setEnabled(false);
 	centerBox.setEnabled(false);
 	frameBox.setEnabled(false);
 	ignoreBox.setEnabled(false);
@@ -1527,12 +1507,11 @@ public class STLTranslator implements Plugin, Translator
 
 	out.print(prefix);
 	out.print(" ");
-
-	out.print(nf.format(p.x));
+	out.print(Float.toString((float)p.x));
 	out.print(" ");
-	out.print(nf.format(p.y));
+	out.print(Float.toString((float)p.y));
 	out.print(" ");
-	out.print(nf.format(p.z));
+	out.print(Float.toString((float)p.z));
     }
 
     /**
