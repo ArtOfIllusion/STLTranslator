@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2002-2004 by Nik Trevallyn-Jones
  * Changes copyright (C) 2021 by Lucas Stanek
+ * Zoom-Timer copyright (C) 2021 by Petri Ihalainen
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -38,6 +39,9 @@ import java.io.*;
 import java.util.*;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.GZIPInputStream;
+
+import javax.swing.Timer;
+import java.awt.event.*;
 
 import org.exmosys.streams.*;
 import org.exmosys.util.Util;
@@ -133,6 +137,37 @@ public class STLTranslator implements Plugin, Translator
 	Translate.text("Continue"), Translate.text("Cancel")
     };
 
+    //A bit of an interesting hack - make sure the new window is fully initialized before
+    //messing with the views. Courtesy Peteihis.
+    protected LayoutWindow layout;
+    private Timer viewZoomTimer = new Timer(50, new ActionListener()
+        {
+          public void actionPerformed(ActionEvent e)
+          {
+            ArrayList<ObjectInfo> objectsToZoomTo = new ArrayList<ObjectInfo>();
+
+            for (ObjectInfo o : layout.getScene().getObjects())
+              if (! (o.getObject() instanceof SceneCamera) && ! (o.getObject() instanceof Light))
+                objectsToZoomTo.add(o);
+
+            ViewerCanvas[] views = layout.getAllViews();
+            boolean[] done = new boolean[views.length];
+            Arrays.fill(done, true);
+
+            for (int v = 0; v < views.length; v++)
+            {
+              if (views[v].getViewAnimation().animatingMove())done[v] = false;
+              else if (views[v].getBounds().width * views[v].getBounds().height > 0)
+                // This launches the animation also on the views that have alredy stopped but
+                // the animation engine checks internally if there is anything to animate.
+                views[v].fitToObjects(objectsToZoomTo);
+            }
+
+            for (boolean d : done) if (!d) return;
+            viewZoomTimer.stop();
+          }
+        });
+
     /**
      *  process messages sent to our Plugin interface
      */
@@ -145,43 +180,17 @@ public class STLTranslator implements Plugin, Translator
 
 	case Plugin.SCENE_WINDOW_CREATED:
 	    // handle the newly created window
-	    LayoutWindow lw = (LayoutWindow) args[0];
+	    layout = (LayoutWindow) args[0];
 
-	    if (theScene == null || lw.getScene() != theScene
+	    if (theScene == null || layout.getScene() != theScene
 		|| theScene.getNumObjects() < 3)
 		break;
 
-	    //lw.setModified();	// mark the scene as modified
 	    ModellingApp.getPreferences().setDefaultDisplayMode(rendermode);
 
 	    if (frameBox.getState() == false) break;
 
-	    // now adjust the scene camera to frame the object
-	    ObjectInfo cam = theScene.getObject(0);
-	    ObjectInfo obj = theScene.getObject(2);
-
-	    BoundingBox bb = obj.getBounds()
-		.transformAndOutset(obj.coords.fromLocal());
-
-	    Vec3 size = bb.getSize();
-	    //bb.outset(Math.max(size.x, size.y)*0.05);	// grow by 5%
-
-	    double fov = ((SceneCamera) cam.object).getFieldOfView();
-	    Vec3 pos = cam.coords.getOrigin();
-
-	    //System.out.println("fov=" + fov + "; size=" + size + "; bb=" + bb +
-	    //   "; pos=" + pos);
-
-	    // set the camera's distance so the entire object is visible
-	    pos.z = Math.max(size.x, size.y)/Math.tan(fov*Math.PI/180.0);
-	    cam.coords.setOrigin(pos);
-	
-	    //System.out.println("set cam to: " + cam.coords.getOrigin());
-
-	    theScene.setSelection(2);
-	    lw.frameWithCameraCommand(true);	// frame the scene
-	    theScene.clearSelection();
-
+            viewZoomTimer.start();
 	    theScene = null;
 
 	    break;
