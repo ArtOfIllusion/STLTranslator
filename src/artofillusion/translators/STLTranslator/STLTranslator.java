@@ -57,7 +57,7 @@ public class STLTranslator implements Plugin, Translator
 
     /* public so external code (eg scripts) can have access */
     public double surfError = 0.05;
-    public boolean ignoreError=false, centered=true, frame=true;
+    public boolean ignoreError=false, centered=false, frame=true;
 
     protected Object ed;
 
@@ -73,6 +73,7 @@ public class STLTranslator implements Plugin, Translator
     protected Thread thread;
     protected OutputStream out;
     protected InputStream in;
+
     protected CharArrayWriter message;
     protected Exception error;
 
@@ -85,7 +86,7 @@ public class STLTranslator implements Plugin, Translator
     });
 
     protected BCheckBox centerBox = new
-	BCheckBox(Translate.text("center"), true);
+	BCheckBox(Translate.text("center"), false);
     protected BCheckBox frameBox = new
 	BCheckBox(Translate.text("frame"), true);
     protected BCheckBox ignoreBox = new
@@ -592,7 +593,7 @@ public class STLTranslator implements Plugin, Translator
 
 			centre = bounds.getCenter();
 			coords = new
-			    CoordinateSystem(centre, Vec3.vz(), Vec3.vy());
+			    CoordinateSystem(new Vec3(), Vec3.vz(), Vec3.vy());
 
 			if (centered) {
 			    double dx = (centre.x > 0.0 ? -centre.x : 0.0);
@@ -891,7 +892,7 @@ public class STLTranslator implements Plugin, Translator
 		vertArray = (Vec3[]) vlist.toArray(vertArray);
 
 		centre = bounds.getCenter();
-		coords = new CoordinateSystem(centre, Vec3.vz(), Vec3.vy());
+		coords = new CoordinateSystem(new Vec3(), Vec3.vz(), Vec3.vy());
 
 		if (centered) {
 		    double dx = (centre.x > 0.0 ? -centre.x : 0.0);
