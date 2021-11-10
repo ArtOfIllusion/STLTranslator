@@ -386,7 +386,8 @@ public class STLTranslator implements Plugin, Translator
 	    vert = mesh.getVertices();
 	    face = mesh.getFaces();
 
-	    trans = info.coords.fromLocal().times(move);
+            info.coords.transformOrigin(move);
+	    trans = info.coords.fromLocal();
 
 	    // print all faces to file
 	    for (int i = 0; i < face.length; i++) {
@@ -457,7 +458,8 @@ public class STLTranslator implements Plugin, Translator
 	    vert = mesh.getVertices();
 	    face = mesh.getFaces();
 
-	    trans = info.coords.fromLocal().times(move);
+            info.coords.transformOrigin(move);
+	    trans = info.coords.fromLocal();
 
 	    // print all faces to file
 	    for (int i = 0; i < face.length; i++) {
