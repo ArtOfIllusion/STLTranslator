@@ -1424,31 +1424,31 @@ public class STLTranslator implements Plugin, Translator
 	    int fc = mesh.getFaces().length;
 	    if (((fc/2) * 2) != fc) {
 		valid = false;
-		err.write("\nvalidate: number of faces (" + fc +
-			  ") is not even");
+		err.write("validate: number of faces (" + fc +
+			  ") is not even\n");
 	    }
 
 	    // number of edges must be a multiple of 3
 	    int ec = mesh.getEdges().length;
 	    if (((ec/3) * 3) != ec) {
 		valid = false;
-		err.write("\nvalidate: number of edges (" + ec +
-			  ") is not a multiple of 3");
+		err.write("validate: number of edges (" + ec +
+			  ") is not a multiple of 3\n");
 	    }
 
 	    // number of edges must be 2/3 number of faces
 	    if (2*ec != 3*fc) {
 		valid = false;
-		err.write("\nvalidate: number of faces (" + fc +
-			  ") is not 2/3 the number of edges (" + ec + ")");
+		err.write("validate: number of faces (" + fc +
+			  ") is not 2/3 the number of edges (" + ec + ")\n");
 	    }
 
 	    // calculate the number of holes we've found...
 	    int vc = mesh.getVertices().length;
 	    int holes = -((fc - ec + vc - 2) / 2);
 	    if (holes > 0)
-		err.write("\nvalidate: calculated holes (using Euler's) = " +
-			  holes);
+		err.write("validate: calculated holes (using Euler's) = " +
+			  holes + "\n");
 
 	    System.out.println("validate: fc=" +fc+ "; ec=" +ec+ "; vc=" +vc);
 	} catch (IOException e) {
