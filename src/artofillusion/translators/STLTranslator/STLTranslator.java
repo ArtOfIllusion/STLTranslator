@@ -593,23 +593,11 @@ public class STLTranslator implements Plugin, Translator
 			faceArray = (int[][]) flist.toArray(new int[0][0]);
 			vertArray = (Vec3[]) vlist.toArray(new Vec3[0]);
 
-			centre = bounds.getCenter();
-			coords = new
-			    CoordinateSystem(new Vec3(), Vec3.vz(), Vec3.vy());
-
-			if (centered) {
-			    double dx = (centre.x > 0.0 ? -centre.x : 0.0);
-			    double dy = (centre.y > 0.0 ? -centre.y : 0.0);
-			    double dz = (centre.z > 0.0 ? -centre.z : 0.0);
-			    coords.setOrigin(new Vec3(dx, dy, dz));
-			}
-
-			TriangleMesh mesh = new
-			    TriangleMesh(vertArray, faceArray);
+			TriangleMesh mesh = new TriangleMesh(vertArray, faceArray);
 
 			validate(mesh, message);
 
-			info = new ObjectInfo(mesh, coords, name);
+			info = new ObjectInfo(mesh, new CoordinateSystem(), name);
 
 			info.addTrack(new PositionTrack(info), 0);
 			info.addTrack(new RotationTrack(info), 1);
@@ -725,8 +713,20 @@ public class STLTranslator implements Plugin, Translator
 		}
 	    }
 
-	    if (count == 0)
-		message.write("\nNo object created");
+	    if (count >0)
+            {
+              if (centered)
+              {
+                centre = bounds.getCenter();
+                double dx = (centre.x > 0.0 ? -centre.x : 0.0);
+                double dy = (centre.y > 0.0 ? -centre.y : 0.0);
+                double dz = (centre.z > 0.0 ? -centre.z : 0.0);
+
+                for (ObjectInfo obj : scene.getObjects())
+                  if (obj.getObject() instanceof TriangleMesh)
+                    obj.coords.setOrigin(new Vec3(dx, dy, dz));
+              }
+            } else message.write("\nNo object created");
 	}
 	catch (Exception e) {
 	    new BStandardDialog("", new String [] {
