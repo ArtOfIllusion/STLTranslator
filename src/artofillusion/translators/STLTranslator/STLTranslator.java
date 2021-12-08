@@ -1,5 +1,7 @@
 /*
  * Copyright (C) 2002-2004 by Nik Trevallyn-Jones
+ * Changes copyright (C) 2021 by Lucas Stanek
+ * Zoom-Timer copyright (C) 2021 by Petri Ihalainen
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
@@ -38,6 +40,9 @@ import java.util.*;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.GZIPInputStream;
 
+import javax.swing.Timer;
+import java.awt.event.*;
+
 import org.exmosys.streams.*;
 import org.exmosys.util.Util;
 
@@ -51,9 +56,8 @@ public class STLTranslator implements Plugin, Translator
     public static final int IMPORT = 1;
 
     /* public so external code (eg scripts) can have access */
-    public double surfError = 0.05, tolerance = 0.0;
-    public int decimal = 12;
-    public boolean ignoreError=false, centered=true, frame=true;
+    public double surfError = 0.05;
+    public boolean ignoreError=false, centered=false, frame=true;
 
     protected Object ed;
 
@@ -69,6 +73,7 @@ public class STLTranslator implements Plugin, Translator
     protected Thread thread;
     protected OutputStream out;
     protected InputStream in;
+
     protected CharArrayWriter message;
     protected Exception error;
 
@@ -81,20 +86,14 @@ public class STLTranslator implements Plugin, Translator
     });
 
     protected BCheckBox centerBox = new
-	BCheckBox(Translate.text("center"), true);
+	BCheckBox(Translate.text("center"), false);
     protected BCheckBox frameBox = new
 	BCheckBox(Translate.text("frame"), true);
     protected BCheckBox ignoreBox = new
 	BCheckBox(Translate.text("ignoreErrors"), false);
     
-    protected ValueField errorField = new
-	ValueField(tolerance, ValueField.NONNEGATIVE);
-
     protected ValueField surfErrorField = new
 	ValueField(surfError, ValueField.NONNEGATIVE);
-
-    protected ValueField decimalField = new
-	ValueField((double) decimal, ValueField.INTEGER | ValueField.POSITIVE);
 
     protected BCheckBox compressBox = new
 	BCheckBox(Translate.text("fileCompression"), false);
@@ -114,8 +113,6 @@ public class STLTranslator implements Plugin, Translator
     protected BScrollPane scroll = new
 	BScrollPane(BScrollPane.SCROLLBAR_AS_NEEDED,
 		    BScrollPane.SCROLLBAR_AS_NEEDED);
-
-    protected NumberFormat nf = NumberFormat.getInstance(Locale.US);
 
     protected BComboBox meshChoice = new BComboBox();
 
@@ -141,6 +138,37 @@ public class STLTranslator implements Plugin, Translator
 	Translate.text("Continue"), Translate.text("Cancel")
     };
 
+    //A bit of an interesting hack - make sure the new window is fully initialized before
+    //messing with the views. Courtesy Peteihis.
+    protected LayoutWindow layout;
+    private Timer viewZoomTimer = new Timer(50, new ActionListener()
+        {
+          public void actionPerformed(ActionEvent e)
+          {
+            ArrayList<ObjectInfo> objectsToZoomTo = new ArrayList<ObjectInfo>();
+
+            for (ObjectInfo o : layout.getScene().getObjects())
+              if (! (o.getObject() instanceof SceneCamera) && ! (o.getObject() instanceof Light))
+                objectsToZoomTo.add(o);
+
+            ViewerCanvas[] views = layout.getAllViews();
+            boolean[] done = new boolean[views.length];
+            Arrays.fill(done, true);
+
+            for (int v = 0; v < views.length; v++)
+            {
+              if (views[v].getViewAnimation().animatingMove())done[v] = false;
+              else if (views[v].getBounds().width * views[v].getBounds().height > 0)
+                // This launches the animation also on the views that have alredy stopped but
+                // the animation engine checks internally if there is anything to animate.
+                views[v].fitToObjects(objectsToZoomTo);
+            }
+
+            for (boolean d : done) if (!d) return;
+            viewZoomTimer.stop();
+          }
+        });
+
     /**
      *  process messages sent to our Plugin interface
      */
@@ -153,43 +181,17 @@ public class STLTranslator implements Plugin, Translator
 
 	case Plugin.SCENE_WINDOW_CREATED:
 	    // handle the newly created window
-	    LayoutWindow lw = (LayoutWindow) args[0];
+	    layout = (LayoutWindow) args[0];
 
-	    if (theScene == null || lw.getScene() != theScene
+	    if (theScene == null || layout.getScene() != theScene
 		|| theScene.getNumObjects() < 3)
 		break;
 
-	    //lw.setModified();	// mark the scene as modified
 	    ModellingApp.getPreferences().setDefaultDisplayMode(rendermode);
 
 	    if (frameBox.getState() == false) break;
 
-	    // now adjust the scene camera to frame the object
-	    ObjectInfo cam = theScene.getObject(0);
-	    ObjectInfo obj = theScene.getObject(2);
-
-	    BoundingBox bb = obj.getBounds()
-		.transformAndOutset(obj.coords.fromLocal());
-
-	    Vec3 size = bb.getSize();
-	    //bb.outset(Math.max(size.x, size.y)*0.05);	// grow by 5%
-
-	    double fov = ((SceneCamera) cam.object).getFieldOfView();
-	    Vec3 pos = cam.coords.getOrigin();
-
-	    //System.out.println("fov=" + fov + "; size=" + size + "; bb=" + bb +
-	    //   "; pos=" + pos);
-
-	    // set the camera's distance so the entire object is visible
-	    pos.z = Math.max(size.x, size.y)/Math.tan(fov*Math.PI/180.0);
-	    cam.coords.setOrigin(pos);
-	
-	    //System.out.println("set cam to: " + cam.coords.getOrigin());
-
-	    theScene.setSelection(2);
-	    lw.frameWithCameraCommand(true);	// frame the scene
-	    theScene.clearSelection();
-
+            viewZoomTimer.start();
 	    theScene = null;
 
 	    break;
@@ -364,10 +366,6 @@ public class STLTranslator implements Plugin, Translator
 	Mat4 trans = null;
 	Vec3 v;
 	double length;
-	String name = null;
-
-	nf.setMaximumFractionDigits(decimal);
-	nf.setGroupingUsed(false);
 
 	// Write the objects in the scene.
 	int max = list.size();
@@ -377,29 +375,26 @@ public class STLTranslator implements Plugin, Translator
 
 	    if (mesh == null) continue;
 
-	    if (name == null) {
-		// Write the header information.
-		name = Util.translate(info.name, " ", "_");
-		out.print("solid \"");
-		out.print(name);
-		out.print("\"; Produced by Art of Illusion ");
-		out.print(ModellingApp.VERSION);
-		out.print(", ");
-		out.print(new Date().toString());
-	    }
+            // Write the header information.
+            out.print("solid ");
+            out.print(info.name);
+            out.print("; Produced by Art of Illusion ");
+            out.print(ModellingApp.VERSION);
+            out.print(", ");
+            out.print(new Date().toString());
 
 	    vert = mesh.getVertices();
 	    face = mesh.getFaces();
 
-	    trans = info.coords.fromLocal().times(move);
+            info.coords.transformOrigin(move);
+	    trans = info.coords.fromLocal();
 
 	    // print all faces to file
 	    for (int i = 0; i < face.length; i++) {
 		v = vert[face[i].v2].r.minus(vert[face[i].v1].r)
 		    .cross(vert[face[i].v3].r.minus(vert[face[i].v1].r));
 
-		length = v.length();
-		if (length > 0.0) v.scale(1.0/length);
+                v.normalize();
 
 		//System.out.println("STL; norm before trans=" + v);
 		v = info.coords.fromLocal().timesDirection(v);
@@ -412,9 +407,9 @@ public class STLTranslator implements Plugin, Translator
 		
 		out.print("\n  endloop\nendfacet");
 	    }
+            out.println("\nendsolid " + info.name);
 	}
 
-	out.println("\nendsolid");
 	out.flush();
 	
 	System.out.println("stream complete");
@@ -433,9 +428,6 @@ public class STLTranslator implements Plugin, Translator
 
 	// binary STL is always little-endian
 	DataOutput out = new LittleEndianDataOutputStream(os);
-
-	nf.setMaximumFractionDigits(decimal);
-	nf.setGroupingUsed(false);
 
 	ObjectInfo info = null;
 	TriangleMesh mesh = null;
@@ -466,14 +458,14 @@ public class STLTranslator implements Plugin, Translator
 	    vert = mesh.getVertices();
 	    face = mesh.getFaces();
 
-	    trans = info.coords.fromLocal().times(move);
+            info.coords.transformOrigin(move);
+	    trans = info.coords.fromLocal();
 
 	    // print all faces to file
 	    for (int i = 0; i < face.length; i++) {
 		v = vert[face[i].v2].r.minus(vert[face[i].v1].r).cross(vert[face[i].v3].r.minus(vert[face[i].v1].r));
 
-		length = v.length();
-		if (length > 0.0) v.scale(1.0/length);
+                v.normalize();
 
 		//System.out.println("STL; norm before trans=" + v);
 		v = info.coords.fromLocal().timesDirection(v);
@@ -538,17 +530,13 @@ public class STLTranslator implements Plugin, Translator
 	    token.resetSyntax();
 	    token.eolIsSignificant(true);
 
-	    token.wordChars('a', 'z');
-	    token.wordChars('A', 'Z');
-	    token.wordChars('"', '"');
-	    token.wordChars('_', '_');
-	    token.wordChars('.', '.');
-	    token.wordChars('-', '-');
-	    token.wordChars('+', '+');
-	    token.wordChars('1', '9');
-	    token.wordChars('0', '0');
+	    token.wordChars('!', '~'); //Classic 7-bit ASCII printable range, not including space
+	    token.wordChars(0x00A1, 0x00FF); // ISO-8259-1 extended ASCII/US-ASCII...
+            token.ordinaryChar(0x00AD); //Except soft-hyphen (for dynamically-broken lines)
+            token.commentChar(';'); //From semicolon to EOL, comment metadata is ignored.
 
-	    token.whitespaceChars(' ', ' ');
+	    token.whitespaceChars(' ', ' '); //space
+            token.whitespaceChars(0x00A0, 0x00A0); //non-breaking space
 	    token.whitespaceChars('\t', '\t');
 
 	    int count = 0;
@@ -572,18 +560,19 @@ public class STLTranslator implements Plugin, Translator
 			flist.clear();
 			vmap.clear();
 
-			if (token.nextToken() == WORD) {
-			    s = token.sval;
-
-			    if (QUOTES.indexOf(s.charAt(0)) >= 0
-				&& s.charAt(s.length()-1) == s.charAt(0)) {
-				
-				name = s.substring(1, s.length()-1);
-			    }
-			}
-			
-			if (name == null || name.length() == 0)
-			    name = "Object-" + count;
+                        if (token.nextToken() == WORD) {
+                          s = token.sval;
+                          if (s != "facet") {
+                            if (QUOTES.indexOf(s.charAt(0)) >= 0
+                                && s.charAt(s.length()-1) == s.charAt(0)) {
+                                name = s.substring(1, s.length()-1);
+                                } else {
+                                  name = s;
+                                  while (token.nextToken() != EOL) // read name till
+                                    name = name + " " + token.sval; // EOL, including spaces
+                                }
+                            }
+                        } else name = "Object-" + count;
 
 			System.out.println("STL: name=" + name);
 
@@ -601,26 +590,14 @@ public class STLTranslator implements Plugin, Translator
 
 			count++;
 
-			faceArray = (int[][]) flist.toArray(faceArray);
-			vertArray = (Vec3[]) vlist.toArray(vertArray);
+			faceArray = (int[][]) flist.toArray(new int[0][0]);
+			vertArray = (Vec3[]) vlist.toArray(new Vec3[0]);
 
-			centre = bounds.getCenter();
-			coords = new
-			    CoordinateSystem(centre, Vec3.vz(), Vec3.vy());
-
-			if (centered) {
-			    double dx = (centre.x > 0.0 ? -centre.x : 0.0);
-			    double dy = (centre.y > 0.0 ? -centre.y : 0.0);
-			    double dz = (centre.z > 0.0 ? -centre.z : 0.0);
-			    coords.setOrigin(new Vec3(dx, dy, dz));
-			}
-
-			TriangleMesh mesh = new
-			    TriangleMesh(vertArray, faceArray);
+			TriangleMesh mesh = new TriangleMesh(vertArray, faceArray);
 
 			validate(mesh, message);
 
-			info = new ObjectInfo(mesh, coords, name);
+			info = new ObjectInfo(mesh, new CoordinateSystem(), name);
 
 			info.addTrack(new PositionTrack(info), 0);
 			info.addTrack(new RotationTrack(info), 1);
@@ -671,19 +648,19 @@ public class STLTranslator implements Plugin, Translator
 			v3 = (Vec3) vlist.get(face[2]);
 
 			calcNorm = v2.minus(v1).cross(v3.minus(v1));
-			double length = calcNorm.length();
-			if (length > 0.0) calcNorm.scale(1.0/length);
+                        calcNorm.normalize();
+                        double projection = norm.unit().dot(calcNorm);
 
-			if (!calcNorm.equals(norm)
-			    && Math.abs(calcNorm.minus(norm).length())
-			    > tolerance)
+                        if (0 < projection && projection < 0.999)
+                            message.write("Normal direction, line: " + lineno + "\n"
+                            + "read: " + norm + "; calculated: " + calcNorm + "\n");
+                        if (projection < 0.0)
+                            message.write("Inverted normal at line: " + lineno + "\n");
+                        if (projection == 0.0)
+                            message.write("Degenerate triangle Detected at line: "
+                                          + lineno + "\n");
 
-			    message.write("\nWarning (line " +
-				      lineno +
-					"): facet normal mismatch. read: " +
-					norm + "; calculated: " + calcNorm);
-			    
-			flist.add(face);
+                        flist.add(face);
 		    }
 
 		    else if (s.equals("vertex")) {
@@ -736,13 +713,25 @@ public class STLTranslator implements Plugin, Translator
 		}
 	    }
 
-	    if (count == 0)
-		message.write("\nNo object created");
+	    if (count >0)
+            {
+              if (centered)
+              {
+                centre = bounds.getCenter();
+                double dx = (centre.x > 0.0 ? -centre.x : 0.0);
+                double dy = (centre.y > 0.0 ? -centre.y : 0.0);
+                double dz = (centre.z > 0.0 ? -centre.z : 0.0);
+
+                for (ObjectInfo obj : scene.getObjects())
+                  if (obj.getObject() instanceof TriangleMesh)
+                    obj.coords.setOrigin(new Vec3(dx, dy, dz));
+              }
+            } else message.write("\nNo object created");
 	}
 	catch (Exception e) {
 	    new BStandardDialog("", new String [] {
 		Translate.text("errorLoadingFile"),
-		"(at line " + lineno + ")\n" + e.getMessage()
+		"(at line " + lineno + ")\n" + e.toString()
 	    }, BStandardDialog.ERROR).showMessageDialog(parent);
 	    return null;
 	}
@@ -883,18 +872,19 @@ public class STLTranslator implements Plugin, Translator
 		    v3 = (Vec3) vlist.get(face[2]);
 
 		    calcNorm = v2.minus(v1).cross(v3.minus(v1));
-		    double length = calcNorm.length();
-		    if (length > 0.0) calcNorm.scale(1.0/length);
+		    calcNorm.normalize();
+                    double projection = norm.unit().dot(calcNorm);
+                
+                    if (0 < projection && projection < 0.999)
+                        message.write("Normal direction, face: " + faceno + "\n"
+                        + "read: " + norm + "; calculated: " + calcNorm + "\n");
+                    if (projection < 0.0)
+                        message.write("Inverted normal at face: " + faceno + "\n");
+                    if (projection == 0.0)
+                        message.write("Degenerate triangle detected at face: "
+                        + faceno + "\n");
 
-		    if (!calcNorm.equals(norm)
-			&& Math.abs(calcNorm.minus(norm).length())
-			> tolerance)
-
-			message.write("\nWarning: facet normal mismatch." +
-				      "read: " + norm + 
-				      "; calculated: " + calcNorm);
-			    
-		    flist.add(face);
+                    flist.add(face);
 		}
 
 		//System.out.println("STL: building mesh");
@@ -904,7 +894,7 @@ public class STLTranslator implements Plugin, Translator
 		vertArray = (Vec3[]) vlist.toArray(vertArray);
 
 		centre = bounds.getCenter();
-		coords = new CoordinateSystem(centre, Vec3.vz(), Vec3.vy());
+		coords = new CoordinateSystem(new Vec3(), Vec3.vz(), Vec3.vy());
 
 		if (centered) {
 		    double dx = (centre.x > 0.0 ? -centre.x : 0.0);
@@ -977,9 +967,7 @@ public class STLTranslator implements Plugin, Translator
 	ignoreBox.setState(ignoreError);
 	centerBox.setState(centered);
 	frameBox.setState(frame);
-	errorField.setValue(tolerance);
 	surfErrorField.setValue(surfError);
-	decimalField.setValue(decimal);
 
 	can.setText(Translate.text("cancel"));
 	ok.setEnabled(true);
@@ -988,9 +976,7 @@ public class STLTranslator implements Plugin, Translator
 	pathField.setEnabled(true);
 	typeChoice.setEnabled(true);
 	browseButton.setEnabled(true);
-	errorField.setEnabled(true);
 	surfErrorField.setEnabled(true);
-	decimalField.setEnabled(true);
 	centerBox.setEnabled(true);
 	frameBox.setEnabled(true);
 	ignoreBox.setEnabled(true);
@@ -1007,10 +993,6 @@ public class STLTranslator implements Plugin, Translator
 	type.add(new BLabel(Translate.text("fileType")));
 	type.add(typeChoice);
 
-	RowContainer decRow = new RowContainer();
-	decRow.add(Translate.label("maxDecimalDigits"));
-	decRow.add(decimalField);
-
 	RowContainer butts = new RowContainer();
 	butts.add(ok);
 	butts.add(can);
@@ -1022,7 +1004,6 @@ public class STLTranslator implements Plugin, Translator
 	ColumnContainer col = new ColumnContainer();
 	col.add(path);
 	col.add(type);
-	col.add(decRow);
 
 	RowContainer errRow = new RowContainer();
 	if (action == EXPORT) {
@@ -1063,11 +1044,6 @@ public class STLTranslator implements Plugin, Translator
 		typeChoice.add(Translate.text("Auto"));
 
 	    typeChoice.setSelectedIndex(AUTO);
-
-	    errRow.add(Translate.label("errorTolerance"));
-	    errRow.add(errorField);
-
-	    col.add(errRow);
 
 	    RowContainer viewRow = new RowContainer();
 	    viewRow.add(centerBox);
@@ -1202,9 +1178,7 @@ public class STLTranslator implements Plugin, Translator
 	ignoreError = ignoreBox.getState();
 	centered = centerBox.getState();
 	frame = frameBox.getState();
-	tolerance = errorField.getValue();
 	surfError = surfErrorField.getValue();
-	decimal = (int) decimalField.getValue();
 
 	if (action == EXPORT && file.exists()) {
 	    int choice = new
@@ -1252,9 +1226,7 @@ public class STLTranslator implements Plugin, Translator
 	ok.setEnabled(false);
 	pathField.setEnabled(false);
 	browseButton.setEnabled(false);
-	errorField.setEnabled(false);
 	surfErrorField.setEnabled(false);
-	decimalField.setEnabled(false);
 	centerBox.setEnabled(false);
 	frameBox.setEnabled(false);
 	ignoreBox.setEnabled(false);
@@ -1452,31 +1424,31 @@ public class STLTranslator implements Plugin, Translator
 	    int fc = mesh.getFaces().length;
 	    if (((fc/2) * 2) != fc) {
 		valid = false;
-		err.write("\nvalidate: number of faces (" + fc +
-			  ") is not even");
+		err.write("validate: number of faces (" + fc +
+			  ") is not even\n");
 	    }
 
 	    // number of edges must be a multiple of 3
 	    int ec = mesh.getEdges().length;
 	    if (((ec/3) * 3) != ec) {
 		valid = false;
-		err.write("\nvalidate: number of edges (" + ec +
-			  ") is not a multiple of 3");
+		err.write("validate: number of edges (" + ec +
+			  ") is not a multiple of 3\n");
 	    }
 
 	    // number of edges must be 2/3 number of faces
 	    if (2*ec != 3*fc) {
 		valid = false;
-		err.write("\nvalidate: number of faces (" + fc +
-			  ") is not 2/3 the number of edges (" + ec + ")");
+		err.write("validate: number of faces (" + fc +
+			  ") is not 2/3 the number of edges (" + ec + ")\n");
 	    }
 
 	    // calculate the number of holes we've found...
 	    int vc = mesh.getVertices().length;
 	    int holes = -((fc - ec + vc - 2) / 2);
 	    if (holes > 0)
-		err.write("\nvalidate: calculated holes (using Euler's) = " +
-			  holes);
+		err.write("validate: calculated holes (using Euler's) = " +
+			  holes + "\n");
 
 	    System.out.println("validate: fc=" +fc+ "; ec=" +ec+ "; vc=" +vc);
 	} catch (IOException e) {
@@ -1547,12 +1519,11 @@ public class STLTranslator implements Plugin, Translator
 
 	out.print(prefix);
 	out.print(" ");
-
-	out.print(nf.format(p.x));
+	out.print(Float.toString((float)p.x));
 	out.print(" ");
-	out.print(nf.format(p.y));
+	out.print(Float.toString((float)p.y));
 	out.print(" ");
-	out.print(nf.format(p.z));
+	out.print(Float.toString((float)p.z));
     }
 
     /**

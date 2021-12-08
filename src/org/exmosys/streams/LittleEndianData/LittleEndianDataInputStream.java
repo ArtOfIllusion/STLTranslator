@@ -177,6 +177,8 @@ public class LittleEndianDataInputStream extends FilterInputStream
      *
      *  @deprecated
      */
+
+    @Deprecated
     public String readLine()
 	throws IOException
     {
