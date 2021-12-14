@@ -22,6 +22,13 @@ This is a derivative work, based heavily on existing code within AOI and a
 script by Francois Guilett.
   </comments>
   <history>
+     <log version="1.2" author="Lucas Stanek" date ="December 2021">
+- ASCII format now correctly supports US-ASCII character set.
+- Bring several quirky/unique ASCII output decisions in line with more typical usage.
+- More sane output when checking face normals, and clearly alert on degenerate triangles.
+- Fix multiple minor bugs.
+- Frame Objects updated to function reliably.
+     </log>
      <log version="1.1" author="Nik TJ" date="July 2007">
 - Changes for AOI 2.5 compatibility
 - Support for new 'direct-import' code
