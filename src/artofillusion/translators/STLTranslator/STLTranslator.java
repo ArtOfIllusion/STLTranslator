@@ -2,7 +2,8 @@
  * Copyright (C) 2002-2004 by Nik Trevallyn-Jones
  * Changes copyright (C) 2021 by Lucas Stanek
  * Zoom-Timer copyright (C) 2021 by Petri Ihalainen
- *
+ * Changes copyright (C) 2022 by Maksim Khramov
+
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of version 2 of the GNU General Public License as
  * published by the Free Software Foundation.
@@ -34,7 +35,6 @@ import artofillusion.animation.*;
 
 import buoy.event.*;
 import buoy.widget.*;
-import java.text.*;
 import java.io.*;
 import java.util.*;
 import java.util.zip.GZIPOutputStream;
@@ -176,7 +176,7 @@ public class STLTranslator implements Plugin, Translator
     {
 	switch (msg) {
 	case Plugin.APPLICATION_STARTING:
-	    rendermode = ModellingApp.getPreferences().getDefaultDisplayMode();
+	    rendermode = ArtOfIllusion.getPreferences().getDefaultDisplayMode();
 	    break;
 
 	case Plugin.SCENE_WINDOW_CREATED:
@@ -187,7 +187,7 @@ public class STLTranslator implements Plugin, Translator
 		|| theScene.getNumObjects() < 3)
 		break;
 
-	    ModellingApp.getPreferences().setDefaultDisplayMode(rendermode);
+	    ArtOfIllusion.getPreferences().setDefaultDisplayMode(rendermode);
 
 	    if (frameBox.getState() == false) break;
 
@@ -201,24 +201,28 @@ public class STLTranslator implements Plugin, Translator
     /**
      *  get the translator name (used as description)
      */
+    @Override
     public String getName()
     { return "STL (.stl)"; }
 
     /**
      *  return true if this translator can import
      */
+    @Override
     public boolean canImport()
     { return true; }
   
     /**
      *  return true if this translaotor can export
      */
+    @Override
     public boolean canExport()
     { return true; }
 
     /**
      *  perform an import from a file
      */  
+    @Override
     public void importFile(BFrame frame)
     {
 	parent = frame;
@@ -229,18 +233,19 @@ public class STLTranslator implements Plugin, Translator
 	runTask(IMPORT);
 
 	// change the default render mode
-	ApplicationPreferences prefs = ModellingApp.getPreferences();
+	ApplicationPreferences prefs = ArtOfIllusion.getPreferences();
 	rendermode = prefs.getDefaultDisplayMode();
 
 	// change the mode - reset later because newWindow() is asynchronous
 	prefs.setDefaultDisplayMode(ViewerCanvas.RENDER_FLAT);
 
-	ModellingApp.newWindow(theScene);
+	ArtOfIllusion.newWindow(theScene);
     }
 
     /**
      *  perform an export to a file
      */  
+    @Override
     public void exportFile(BFrame frame, Scene scene)
     {
 	//System.out.println("export to file");
@@ -379,7 +384,7 @@ public class STLTranslator implements Plugin, Translator
             out.print("solid ");
             out.print(info.name);
             out.print("; Produced by Art of Illusion ");
-            out.print(ModellingApp.VERSION);
+            out.print(ArtOfIllusion.getVersion());
             out.print(", ");
             out.print(new Date().toString());
 
@@ -447,7 +452,7 @@ public class STLTranslator implements Plugin, Translator
 	    if (hdr == null) {
 		// generate 80 bytes of header text
 		hdr = "\"" + Util.translate(info.name, " ", "_") +
-		    "\"; Produced by Art of Illusion " + ModellingApp.VERSION +
+		    "\"; Produced by Art of Illusion " + ArtOfIllusion.getVersion() +
 		    ", " + new Date().toString() +
 		"                                                            ";
 
@@ -516,7 +521,7 @@ public class STLTranslator implements Plugin, Translator
 	    theScene = scene;
 	}
 
-	rendermode = ModellingApp.getPreferences().getDefaultDisplayMode();
+	rendermode = ArtOfIllusion.getPreferences().getDefaultDisplayMode();
 
 	if (message == null) message = new CharArrayWriter(1024*16);
 	else message.reset();
@@ -772,7 +777,7 @@ public class STLTranslator implements Plugin, Translator
 	    theScene = scene;
 	}
 
-	rendermode = ModellingApp.getPreferences().getDefaultDisplayMode();
+	rendermode = ArtOfIllusion.getPreferences().getDefaultDisplayMode();
 
 	if (message == null) message = new CharArrayWriter(1024*16);
 	else message.reset();
@@ -957,7 +962,7 @@ public class STLTranslator implements Plugin, Translator
     {
 	name = "Untitled.stl";
 	pathField.setText(name);
-	if (path == null) path = ModellingApp.currentDirectory;
+	if (path == null) path = ArtOfIllusion.getCurrentDirectory();
 	prog.setShowProgressText(true);
 
 	this.action = action;
@@ -1022,16 +1027,11 @@ public class STLTranslator implements Plugin, Translator
 		scroll.setContent(messageArea);
 
 		if (solidPlugin == null) {
-		    Plugin[] plugin = ModellingApp.getPlugins();
-
-		    for (int x = 0; x < plugin.length; x++) {
-			if (plugin[x].getClass().getName()
-			    .equals("artofillusion.plugin.SolidTool")) {
-
-			    solidPlugin = plugin[x];
-			    break;
-			}
-		    }
+                    solidPlugin = PluginRegistry.getPlugins(Plugin.class)
+                            .stream()
+                            .filter(plugin -> plugin.getClass().getName().equals("artofillusion.plugin.SolidTool"))
+                            .findAny()
+                            .orElseGet(() -> null);
 		}
 
 		if (solidPlugin != null) butts.add(fix);
@@ -1171,7 +1171,7 @@ public class STLTranslator implements Plugin, Translator
 	    name = name.substring(pos+1);
 	}
 	else if (path == null || path.length() == 0)
-	    path = ModellingApp.currentDirectory;
+	    path = ArtOfIllusion.getCurrentDirectory();
 
 	File file = new File(path, name);
 
@@ -1390,7 +1390,7 @@ public class STLTranslator implements Plugin, Translator
     {
 	// Create a scene to add objects to.
 	Scene result = new Scene();
-	Vec3 camPos = new Vec3(0.0, 0.0, ModellingApp.DIST_TO_SCREEN);
+	Vec3 camPos = new Vec3(0.0, 0.0,  Camera.DEFAULT_DISTANCE_TO_SCREEN);
 	CoordinateSystem coords = new
 	    CoordinateSystem(camPos, new Vec3(0.0, 0.0, -1.0), Vec3.vy());
 
